@@ -130,7 +130,7 @@ class ChannelListFragment : Fragment() {
     private fun moveFocus(rv: RecyclerView, up: Boolean) {
         val lm = rv.layoutManager as? LinearLayoutManager ?: return
         val count = rv.adapter?.itemCount ?: 0
-        if (count == 0) {
+        if (count == 0 || !rv.isAttachedToWindow) {
             return
         }
         val current = rv.focusedChild?.let { lm.getPosition(it) } ?: -1
@@ -139,12 +139,20 @@ class ChannelListFragment : Fragment() {
             up -> if (current == 0) count - 1 else current - 1
             else -> if (current == count - 1) 0 else current + 1
         }
+        if (target !in 0 until count) {
+            return
+        }
         val view = lm.findViewByPosition(target)
-        if (view != null) {
+        if (view != null && view.isAttachedToWindow) {
             view.requestFocus()
         } else {
+            // 跨屏回绕：先滚动，等布局完成后再聚焦（post 里需重查视图，防止列表已关闭）
             rv.scrollToPosition(target)
-            rv.post { lm.findViewByPosition(target)?.requestFocus() }
+            rv.post {
+                if (rv.isAttachedToWindow && view?.let { lm.findViewByPosition(target) } != null) {
+                    lm.findViewByPosition(target)?.requestFocus()
+                }
+            }
         }
     }
 

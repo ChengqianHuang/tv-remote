@@ -2,6 +2,8 @@ package com.lizongying.mytv
 
 import android.app.Application
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.util.DisplayMetrics
 import android.util.Log
 import android.view.WindowManager
@@ -24,6 +26,7 @@ class MyApplication : Application() {
         windowManager.defaultDisplay.getMetrics(displayMetrics)
 
         installCrashHandler()
+        installUiGuard()
     }
 
     /**
@@ -42,6 +45,33 @@ class MyApplication : Application() {
                 Log.e(TAG, "write crash log error", e)
             }
             previous?.uncaughtException(thread, throwable)
+        }
+    }
+
+    /**
+     * 主线程兜底：捕获UI层未预期异常（真机ROM焦点实现差异等），
+     * 记录日志并保持运行，避免闪退。严重错误仍交黑匣子退出。
+     */
+    fun installUiGuard() {
+        val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+        mainHandler.post {
+            while (true) {
+                try {
+                    Looper.loop()
+                } catch (e: Throwable) {
+                    Log.e(TAG, "ui guard caught", e)
+                    try {
+                        val sw = StringWriter()
+                        e.printStackTrace(PrintWriter(sw))
+                        val time =
+                            SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.CHINA).format(Date())
+                        val f = File(filesDir, CRASH_FILE)
+                        val prev = if (f.isFile) f.readText() else ""
+                        f.writeText("$time [ui-guard]\n${sw}\n${prev.take(4000)}")
+                    } catch (ignored: Exception) {
+                    }
+                }
+            }
         }
     }
 
