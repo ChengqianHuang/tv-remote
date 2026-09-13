@@ -66,7 +66,7 @@ class TVViewModel(private var tv: TV) : ViewModel() {
     }
 
     fun firstSource() {
-        if (_videoUrl.value!!.isNotEmpty()) {
+        if (!_videoUrl.value.isNullOrEmpty()) {
             setVideoIndex(0)
             allReady()
         } else {
@@ -138,7 +138,15 @@ class TVViewModel(private var tv: TV) : ViewModel() {
     }
 
     fun getVideoUrlCurrent(): String {
-        return _videoUrl.value!![_videoIndex.value!!]
+        val urls = _videoUrl.value
+        if (urls.isNullOrEmpty()) {
+            return ""
+        }
+        val index = _videoIndex.value
+        if (index == null || index !in urls.indices) {
+            return urls[0]
+        }
+        return urls[index]
     }
 
     companion object {

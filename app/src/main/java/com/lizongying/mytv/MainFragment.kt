@@ -236,7 +236,8 @@ class MainFragment : BrowseSupportFragment() {
     private fun loadRows() {
         rowsAdapter = ArrayObjectAdapter(ListRowPresenter())
 
-        val cardPresenter = CardPresenter(context!!)
+        val context = context ?: return
+        val cardPresenter = CardPresenter(context)
 
         var idx: Long = 0
         for ((k, v) in TVList.list) {
@@ -271,10 +272,11 @@ class MainFragment : BrowseSupportFragment() {
         view?.post {
             val tvViewModel = tvListViewModel.getTVViewModel(itemPosition)
             if (tvViewModel != null) {
-                if (tvViewModel.videoUrl.value!!.size > 1) {
+                val urls = tvViewModel.videoUrl.value
+                if (urls != null && urls.size > 1) {
                     val videoIndex = tvViewModel.videoIndex.value?.minus(1)
                     if (videoIndex == -1) {
-                        tvViewModel.setVideoIndex(tvViewModel.videoUrl.value!!.size - 1)
+                        tvViewModel.setVideoIndex(urls.size - 1)
                     }
                     tvViewModel.changed()
                 }
@@ -286,9 +288,10 @@ class MainFragment : BrowseSupportFragment() {
         view?.post {
             val tvViewModel = tvListViewModel.getTVViewModel(itemPosition)
             if (tvViewModel != null) {
-                if (tvViewModel.videoUrl.value!!.size > 1) {
+                val urls = tvViewModel.videoUrl.value
+                if (urls != null && urls.size > 1) {
                     val videoIndex = tvViewModel.videoIndex.value?.plus(1)
-                    if (videoIndex == tvViewModel.videoUrl.value!!.size) {
+                    if (videoIndex == urls.size) {
                         tvViewModel.setVideoIndex(0)
                     }
                     tvViewModel.changed()

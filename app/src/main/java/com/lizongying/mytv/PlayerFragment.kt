@@ -125,12 +125,17 @@ class PlayerFragment : Fragment(), SurfaceHolder.Callback {
     fun play(tvViewModel: TVViewModel) {
         this.tvViewModel = tvViewModel
         errorRetryTimes = 0
+        val url = tvViewModel.getVideoUrlCurrent()
+        if (url.isEmpty()) {
+            Log.e(TAG, "play empty url: ${tvViewModel.getTV().title}")
+            return
+        }
         playerView?.player?.run {
-            setMediaItem(MediaItem.fromUri(tvViewModel.getVideoUrlCurrent()))
+            setMediaItem(MediaItem.fromUri(url))
             prepare()
         }
         exoPlayer?.run {
-            setMediaItem(com.google.android.exoplayer2.MediaItem.fromUri(tvViewModel.getVideoUrlCurrent()))
+            setMediaItem(com.google.android.exoplayer2.MediaItem.fromUri(url))
             prepare()
         }
     }

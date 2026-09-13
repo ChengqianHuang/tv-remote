@@ -26,6 +26,9 @@ class ChannelListFragment : Fragment() {
     private var selectedGroup = 0
     private var currentPosition = 0
 
+    // 焦点悬空时记忆用户所在列：0=分组列 1=频道列
+    private var lastColumn = 1
+
     private lateinit var groupView: RecyclerView
     private lateinit var channelView: RecyclerView
     private lateinit var groupAdapter: GroupAdapter
@@ -94,38 +97,57 @@ class ChannelListFragment : Fragment() {
     /**
      * 列表可见但焦点未落在列表项上时（真机上常见），由 Activity 把方向键转交到这里，
      * 保证不会误触直接换台。
+     * 焦点悬空时按 lastColumn 记忆的列继续导航，而不是盲跳频道列（否则用户在分组列
+     * 操作时焦点突然跳走，列表看起来失控）。
      */
     fun handleDpad(keyCode: Int) {
-        val inGroups = groupView.hasFocus()
+        val groupFocused = groupView.hasFocus()
+        val channelFocused = channelView.hasFocus()
+        if (groupFocused) {
+            lastColumn = 0
+        } else if (channelFocused) {
+            lastColumn = 1
+        }
+        val inGroups = if (groupFocused || channelFocused) groupFocused else lastColumn == 0
         when (keyCode) {
             KeyEvent.KEYCODE_DPAD_LEFT -> {
                 if (!inGroups) {
-                    groupView.requestFocus()
-                    if (!groupView.hasFocus()) {
-                        groupView.post { groupView.requestFocus() }
-                    }
+                    focusColumn(groupView)
                 }
             }
 
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
                 if (inGroups) {
-                    channelView.requestFocus()
+                    focusColumn(channelView)
                 }
             }
 
             KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> {
                 val up = keyCode == KeyEvent.KEYCODE_DPAD_UP
-                when {
-                    inGroups -> moveFocus(groupView, up)
-                    channelView.hasFocus() -> moveFocus(channelView, up)
-                    else -> focusRunnable.run()
+                if (inGroups) {
+                    moveFocus(groupView, up)
+                } else {
+                    moveFocus(channelView, up)
                 }
             }
         }
     }
 
     /**
+     * 聚焦目标列表：优先直接聚焦，落空（真机布局未完成）时聚焦后重试一次。
+     */
+    private fun focusColumn(rv: RecyclerView) {
+        rv.requestFocus()
+        if (!rv.hasFocus()) {
+            rv.post { rv.requestFocus() }
+        }
+    }
+
+    /**
      * 在列表内部循环移动焦点（到顶回到底部），不会跳出当前列。
+     * 回绕跨屏时目标条目不在屏上：临时换用 SmoothScroller 关闭的布局方式同步滚到目标，
+     * 布局完成后立即聚焦——不依赖异步post时序（厂商ROM的滚动动画/焦点处理各有魔改，
+     * 异步聚焦会导致焦点与选中态错位、列表失控）。
      */
     private fun moveFocus(rv: RecyclerView, up: Boolean) {
         val lm = rv.layoutManager as? LinearLayoutManager ?: return
@@ -142,16 +164,27 @@ class ChannelListFragment : Fragment() {
         if (target !in 0 until count) {
             return
         }
-        val view = lm.findViewByPosition(target)
-        if (view != null && view.isAttachedToWindow) {
-            view.requestFocus()
-        } else {
-            // 跨屏回绕：先滚动，等布局完成后再聚焦（post 里需重查视图，防止列表已关闭）
-            rv.scrollToPosition(target)
-            rv.post {
-                if (rv.isAttachedToWindow && view?.let { lm.findViewByPosition(target) } != null) {
-                    lm.findViewByPosition(target)?.requestFocus()
-                }
+        val onScreen = lm.findViewByPosition(target)
+        if (onScreen != null && onScreen.isAttachedToWindow) {
+            onScreen.requestFocus()
+            return
+        }
+        // 同步布局到目标位置再聚焦：禁用动画，滚动-布局-聚焦在同一帧完成
+        (rv.itemAnimator as? androidx.recyclerview.widget.SimpleItemAnimator)
+            ?.supportsChangeAnimations = false
+        rv.suppressLayout(true)
+        rv.scrollToPosition(target)
+        rv.post {
+            rv.suppressLayout(false)
+            if (!rv.isAttachedToWindow) {
+                return@post
+            }
+            val v = lm.findViewByPosition(target)
+            if (v != null && v.isAttachedToWindow) {
+                v.requestFocus()
+            } else {
+                // 极端情况兜底：聚焦列表本身，保持按键通路不失控
+                rv.requestFocus()
             }
         }
     }

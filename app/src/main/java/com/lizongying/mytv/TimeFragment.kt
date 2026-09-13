@@ -39,14 +39,14 @@ class TimeFragment : Fragment() {
 
         val ratio = 16f / 9f
 
-        if (screenWidth / screenHeight > ratio) {
+        if (screenWidth > 0 && screenHeight > 0 && screenWidth / screenHeight.toFloat() > ratio) {
             val x = ((screenWidth - screenHeight * ratio) / 2).toInt()
             val originalLayoutParams = binding.time.layoutParams as ViewGroup.MarginLayoutParams
             originalLayoutParams.rightMargin += x
             binding.time.layoutParams = originalLayoutParams
         }
 
-        if (screenWidth / screenHeight < ratio) {
+        if (screenWidth / screenHeight.toFloat() < ratio) {
             val y = ((screenHeight - screenWidth / ratio) / 2).toInt()
             val originalLayoutParams = binding.time.layoutParams as ViewGroup.MarginLayoutParams
             originalLayoutParams.topMargin += y
