@@ -70,6 +70,9 @@ class ChannelListFragment : Fragment() {
         // 变更动画会把持有焦点的条目移除重建，导致焦点丢失（TV 上表现为导航错乱），直接禁用
         groupView.itemAnimator = null
         channelView.itemAnimator = null
+        // 固定尺寸：滚动定位确定性更好，且跳过 GapWorker 预取路径（真机堆栈证实其错位风险）
+        groupView.setHasFixedSize(true)
+        channelView.setHasFixedSize(true)
         groupAdapter = GroupAdapter()
         channelAdapter = ChannelAdapter()
         groupView.adapter = groupAdapter
@@ -169,13 +172,10 @@ class ChannelListFragment : Fragment() {
             onScreen.requestFocus()
             return
         }
-        // 同步布局到目标位置再聚焦：禁用动画，滚动-布局-聚焦在同一帧完成
-        (rv.itemAnimator as? androidx.recyclerview.widget.SimpleItemAnimator)
-            ?.supportsChangeAnimations = false
-        rv.suppressLayout(true)
-        rv.scrollToPosition(target)
+        // 跨屏跳转：禁用平滑滚动让 scrollToPosition 直接落位（无动画），
+        // 下一帧聚焦目标。不用 suppressLayout（真机上与滚动动画并发会引发
+        // "Inconsistency detected"位置错乱，堆栈已证实）。
         rv.post {
-            rv.suppressLayout(false)
             if (!rv.isAttachedToWindow) {
                 return@post
             }
@@ -209,6 +209,12 @@ class ChannelListFragment : Fragment() {
         }
         val old = selectedGroup
         selectedGroup = position
+        // RecyclerView 布局/滚动期间调用 notify 会抛 IllegalStateException 并搞乱内部位置
+        // （真机堆栈已证实）。检测到则推迟到下一帧执行。
+        if (channelView.isComputingLayout || groupView.isComputingLayout) {
+            view?.post { selectGroup(position) }
+            return
+        }
         groupAdapter.notifyItemChanged(old)
         groupAdapter.notifyItemChanged(selectedGroup)
         channelAdapter.notifyDataSetChanged()
