@@ -64,18 +64,20 @@ class PlayerFragment : Fragment(), SurfaceHolder.Callback {
                 playerView!!.player?.playWhenReady = true
                 playerView!!.player?.addListener(object : Player.Listener {
                     override fun onVideoSizeChanged(videoSize: VideoSize) {
-                        val ratio = playerView?.measuredWidth?.div(playerView?.measuredHeight!!)
-                        if (ratio != null) {
-                            val layoutParams = playerView?.layoutParams
-                            if (ratio < aspectRatio) {
-                                layoutParams?.height =
-                                    (playerView?.measuredWidth?.div(aspectRatio))?.toInt()
-                                playerView?.layoutParams = layoutParams
-                            } else if (ratio > aspectRatio) {
-                                layoutParams?.width =
-                                    (playerView?.measuredHeight?.times(aspectRatio))?.toInt()
-                                playerView?.layoutParams = layoutParams
-                            }
+                        // 黑屏/死流可能上报 0 宽高，整数除零会直接崩溃
+                        val w = playerView?.measuredWidth ?: return
+                        val h = playerView?.measuredHeight ?: return
+                        if (w <= 0 || h <= 0 || videoSize.width <= 0 || videoSize.height <= 0) {
+                            return
+                        }
+                        val ratio = w.toFloat() / h
+                        val layoutParams = playerView?.layoutParams
+                        if (ratio < aspectRatio) {
+                            layoutParams?.height = (w / aspectRatio).toInt()
+                            playerView?.layoutParams = layoutParams
+                        } else if (ratio > aspectRatio) {
+                            layoutParams?.width = (h * aspectRatio).toInt()
+                            playerView?.layoutParams = layoutParams
                         }
                     }
 
@@ -93,6 +95,12 @@ class PlayerFragment : Fragment(), SurfaceHolder.Callback {
                                     prepare()
                                     play()
                                 }
+                            } else if (errorRetryTimes == 3) {
+                                // 重试耗尽：给可见提示，避免无限黑屏反复prepare
+                                errorRetryTimes++
+                                android.widget.Toast.makeText(
+                                    context, "该频道不可用，请换台", android.widget.Toast.LENGTH_LONG
+                                ).show()
                             }
                         } else {
                             vm?.changed()
