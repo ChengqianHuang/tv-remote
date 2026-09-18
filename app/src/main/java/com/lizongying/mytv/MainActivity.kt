@@ -207,7 +207,9 @@ class MainActivity : FragmentActivity(), Request.RequestListener {
                 Toast.makeText(this@MainActivity, "直播源已更新", Toast.LENGTH_SHORT).show()
                 mainFragment.applySource(source)
             } else {
-                Toast.makeText(this@MainActivity, "直播源拉取失败，请检查地址", Toast.LENGTH_LONG).show()
+                Toast.makeText(
+                    this@MainActivity, "直播源拉取失败或无有效频道，频道列表未变更", Toast.LENGTH_LONG
+                ).show()
             }
         }
     }

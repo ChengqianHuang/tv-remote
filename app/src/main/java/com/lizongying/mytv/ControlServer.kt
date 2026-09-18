@@ -346,8 +346,6 @@ async function pushContent() {
   const r = await jpost('/source', {content});
   alert((await r.json()).message || '已推送');
 }
-  } catch (e) {}
-}
 refresh();
 setInterval(refresh, 5000);
 </script>

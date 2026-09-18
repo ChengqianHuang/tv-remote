@@ -131,7 +131,7 @@ object ChannelSource {
      */
     suspend fun refreshRemote(context: Context): Map<String, List<TV>>? = withContext(Dispatchers.IO) {
         val url = SP.sourceUrl.trim()
-        val urls = if (url.isNotEmpty()) listOf(url) + DEFAULT_SOURCE_URLS else DEFAULT_SOURCE_URLS
+        val urls = if (url.isNotEmpty()) listOf(url) else emptyList()
         for (u in urls) {
             fetchRemote(u)?.let { text ->
                 parse(text)?.let { parsed ->
@@ -139,8 +139,18 @@ object ChannelSource {
                     Log.i(TAG, "refreshed from $u, groups=${parsed.size}")
                     return@withContext parsed
                 }
+                Log.w(TAG, "source $u has no valid channels after filtering, ignored")
+            } ?: Log.w(TAG, "source unavailable: $u")
+        }
+        // 配置地址不可用时回退预置源，保证有内容可看
+        for (u in DEFAULT_SOURCE_URLS) {
+            fetchRemote(u)?.let { text ->
+                parse(text)?.let { parsed ->
+                    cache(context, text)
+                    Log.i(TAG, "refreshed from fallback $u, groups=${parsed.size}")
+                    return@withContext parsed
+                }
             }
-            Log.w(TAG, "source unavailable: $u")
         }
         null
     }
