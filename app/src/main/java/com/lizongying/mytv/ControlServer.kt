@@ -337,8 +337,16 @@ function volTimer() { clearTimeout(vt); vt = setTimeout(async () => {
 async function pushUrl() {
   const url = document.getElementById('srcUrl').value.trim();
   if (!url) return alert('请输入地址');
-  const r = await jpost('/source', {url});
-  alert((await r.json()).message || '已设置');
+  const btn = event && event.target;
+  if (btn) { btn.disabled = true; btn.textContent = '下载中…请稍候'; }
+  try {
+    const r = await jpost('/source', {url});
+    const d = await r.json();
+    alert(d.message || '已设置');
+    if (d.ok) { setTimeout(refresh, 3000); setTimeout(refresh, 8000); }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '设置地址'; }
+  }
 }
 async function pushContent() {
   const content = document.getElementById('srcContent').value;

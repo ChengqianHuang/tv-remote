@@ -92,6 +92,11 @@ class MainFragment : BrowseSupportFragment() {
 
             loadRows()
 
+            pendingSource?.let { pending ->
+                pendingSource = null
+                rebuildRows(pending)
+            }
+
             setupEventListeners()
 
             registerObservers()
@@ -118,10 +123,16 @@ class MainFragment : BrowseSupportFragment() {
      * 用新的源内容重建频道列表，保留当前频道。必须在主线程调用。
      */
     fun applySource(source: Map<String, List<TV>>) {
-        view?.post {
-            rebuildRows(source)
+        val v = view
+        if (v == null) {
+            // Fragment 视图未就绪（如正在退出）：标记待应用，onCreateView 后补
+            pendingSource = source
+            return
         }
+        v.post { rebuildRows(source) }
     }
+
+    private var pendingSource: Map<String, List<TV>>? = null
 
     private fun rebuildRows(source: Map<String, List<TV>>) {
         val current = tvListViewModel.getTVViewModel(itemPosition)?.getTV()
